@@ -264,6 +264,180 @@ fn update_config_file(jwt_secret: &str) -> Result<()> {
     Ok(())
 }
 
+/// Print configuration file help and example
+/// 
+/// This function displays helpful information about how to properly configure
+/// the project_config.toml file with user credentials.
+fn print_configuration_help() {
+    println!();
+    log(Color::Cyan, "📋 Пример корректного файла конфигурации project_config.toml:");
+    println!();
+    println!("  [default_user]");
+    println!("  login = 'your_username'     # от {} до 30 символов", 4);
+    println!("  password = 'your_password'  # минимум {} символов", 4);
+    println!();
+    log(Color::Cyan, &format!("📂 Файл должен находиться по пути: {}", &*constants::PROJECT_CONFIG_FILE));
+    println!();
+    log(Color::Cyan, "💡 Советы по безопасности:");
+    println!("   • Используйте уникальный логин и пароль");
+    println!("   • Включите в пароль буквы, цифры и символы");
+    println!("   • Не используйте простые пароли типа '12345' или 'password'");
+    println!();
+}
+
+/// Verify user data from project_config.toml
+/// 
+/// This function validates the user credentials configured in the project configuration file.
+/// It's a direct port of the `verify_user_data()` bash function from the original install.sh script.
+/// 
+/// # Validation Process:
+/// 
+/// 1. **Reads user credentials**: Extracts login and password from `project_config.toml`
+/// 2. **Validates login length**: Ensures login is between 5-30 characters
+/// 3. **Validates password length**: Ensures password is at least 5 characters long
+/// 
+/// The function looks for a `[default_user]` section in the config file with the following format:
+/// 
+/// ```toml
+/// [default_user]
+/// login = 'username'
+/// password = 'password'
+/// ```
+/// 
+/// # Examples
+/// 
+/// ```no_run
+/// use openvair_installer::verify_user_data;
+/// 
+/// // Verify user credentials in project_config.toml
+/// match verify_user_data() {
+///     Ok(()) => println!("User credentials are valid"),
+///     Err(e) => eprintln!("User validation failed: {}", e),
+/// }
+/// ```
+/// 
+/// # Errors
+/// 
+/// This function will call `stop_script()` and terminate the program if:
+/// 
+/// - Login is shorter than 5 characters or longer than 30 characters
+/// - Password is shorter than 5 characters
+/// - Login or password cannot be found or parsed from the config file
+/// - The project_config.toml file cannot be read
+/// 
+/// # Requirements
+/// 
+/// - The project_config.toml file must exist and be readable
+/// - The config file must contain a valid `[default_user]` section
+/// - Login and password must be properly formatted in the config file
+pub fn verify_user_data() -> Result<()> {
+    // Check user credentials
+    log(Color::Cyan, "User data verification");
+    
+    // Set minimum length constants
+    let min_login_length = 4;
+    let min_password_length = 4;
+    
+    let config_file = &*constants::PROJECT_CONFIG_FILE;
+    
+    // Read the entire config file
+    let mut content = String::new();
+    match std::fs::File::open(config_file) {
+        Ok(mut file) => {
+            if let Err(e) = std::io::Read::read_to_string(&mut file, &mut content) {
+                stop_script(&format!("Failed to read config file {}: {}", config_file, e));
+            }
+        }
+        Err(e) => {
+            stop_script(&format!("Failed to open config file {}: {}", config_file, e));
+        }
+    }
+    
+    // Find the [default_user] section and extract login and password
+    let lines: Vec<&str> = content.lines().collect();
+    let mut default_user_section = None;
+    
+    // Find the line number where [default_user] section starts
+    for (i, line) in lines.iter().enumerate() {
+        if line.trim() == "[default_user]" || line.contains("default_user") {
+            default_user_section = Some(i);
+            break;
+        }
+    }
+    
+    let section_start = match default_user_section {
+        Some(idx) => idx,
+        None => stop_script("[default_user] section not found in project_config.toml")
+    };
+    
+    // Extract login and password from the lines following [default_user]
+    let mut login = String::new();
+    let mut password = String::new();
+    
+    // Look for login and password in the next few lines after [default_user]
+    for i in (section_start + 1)..(section_start + 10).min(lines.len()) {
+        let line = lines[i].trim();
+        
+        if line.starts_with('[') && line.ends_with(']') && line != "[default_user]" {
+            // Hit another section, stop looking
+            break;
+        }
+        
+        if line.contains("login") && line.contains('=') {
+            // Extract login value: login = 'value' -> value
+            if let Some(equals_pos) = line.find('=') {
+                let value_part = &line[equals_pos + 1..].trim();
+                login = value_part.trim_matches(|c| c == '\'' || c == '"' || c == ' ').to_string();
+            }
+        }
+        
+        if line.contains("password") && line.contains('=') {
+            // Extract password value: password = 'value' -> value
+            if let Some(equals_pos) = line.find('=') {
+                let value_part = &line[equals_pos + 1..].trim();
+                password = value_part.trim_matches(|c| c == '\'' || c == '"' || c == ' ').to_string();
+            }
+        }
+    }
+    
+    // Validate user login
+    if login.is_empty() {
+        log(Color::Red, "❌ Логин не указан!");
+        log(Color::Cyan, "ℹ️ Пожалуйста, укажите логин в файле конфигурации.");
+        print_configuration_help();
+        stop_script("Поле логина должно быть заполнено. Установка остановлена.");
+    } else if login.len() < min_login_length {
+        log(Color::Red, &format!("❌ Логин слишком короткий: '{}'", login));
+        log(Color::Cyan, &format!("ℹ️ Минимальная длина логина: {} символов. Текущая длина: {}", 
+            min_login_length, login.len()));
+        stop_script("Логин не соответствует требованиям безопасности. Установка остановлена.");
+    } else if login.len() > 30 {
+        log(Color::Red, &format!("❌ Логин слишком длинный: '{}'", login));
+        log(Color::Cyan, "ℹ️ Максимальная длина логина: 30 символов.");
+        stop_script("Логин превышает максимальную длину. Установка остановлена.");
+    } else {
+        log(Color::Green, "✓ Логин корректен");
+    }
+    
+    // Validate user password
+    if password.is_empty() {
+        log(Color::Red, "❌ Пароль не указан!");
+        log(Color::Cyan, "ℹ️ Пожалуйста, укажите пароль в файле конфигурации.");
+        print_configuration_help();
+        stop_script("Поле пароля должно быть заполнено. Установка остановлена.");
+    } else if password.len() < min_password_length {
+        log(Color::Red, "❌ Пароль слишком короткий!");
+        log(Color::Cyan, &format!("ℹ️ Минимальная длина пароля: {} символов. Текущая длина: {} символов", 
+            min_password_length, password.len()));
+        log(Color::Cyan, "ℹ️ Рекомендуется использовать надёжный пароль с буквами, цифрами и специальными символами.");
+        stop_script("Пароль не соответствует требованиям безопасности. Установка остановлена.");
+    } else {
+        log(Color::Green, "✓ Пароль корректен");
+    }
+    
+    Ok(())
+}
+
 /// Create JWT secret similar to bash create_jwt_secret()
 /// 
 /// Generates a cryptographically secure 32-byte (64 hex characters) random secret using OpenSSL

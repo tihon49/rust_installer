@@ -1,0 +1,13 @@
+# Example project configuration file for Open vAIR installer
+# This demonstrates the format expected by verify_user_data() function
+
+[database]
+host = '127.0.0.1'
+port = 5432
+
+[default_user]
+login = 'admin'
+password = 'secure123'
+
+[jwt]
+# JWT secret will be added by create_jwt_secret() function

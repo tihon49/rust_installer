@@ -1,12 +1,12 @@
 use std::fmt;
-use std::fs::{OpenOptions, File};
-use std::io::{Write, Read};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::process::{Command, exit};
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use chrono::Local;
 use anyhow::Result;
-use regex::Regex;
+use toml_edit::{DocumentMut, value};
 
 /// ANSI color constants
 pub mod colors {
@@ -209,58 +209,32 @@ fn generate_random_secret() -> Result<String> {
 }
 
 /// Update project_config.toml with jwt.secret value, creating [jwt] section if needed
+/// 
+/// This function uses toml_edit to safely update only the JWT secret while preserving
+/// all other content, comments, and formatting in the configuration file.
 fn update_config_file(jwt_secret: &str) -> Result<()> {
     let config_path = &*constants::PROJECT_CONFIG_FILE;
 
-    // Read entire file
-    let mut content = String::new();
-    {
-        let mut f = File::open(config_path)?;
-        f.read_to_string(&mut content)?;
-    }
-
+    // Read the existing TOML content
+    let content = std::fs::read_to_string(config_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read config file {}: {}", config_path, e))?;
+    
+    // Parse the TOML document
+    let mut doc = content.parse::<DocumentMut>()
+        .map_err(|e| anyhow::anyhow!("Failed to parse TOML config file: {}", e))?;
+    
     // Ensure [jwt] section exists
-    if !content.contains("\n[jwt]") && !content.starts_with("[jwt]") {
-        if !content.ends_with('\n') { content.push('\n'); }
-        content.push_str("[jwt]\n");
+    if !doc.contains_key("jwt") {
+        doc["jwt"] = toml_edit::table();
     }
-
-    // Now update or insert secret inside [jwt]
-    let re_section = Regex::new(r"(?s)\[jwt\](.*?)(\n\[|\z)").unwrap();
-    let new_content = if let Some(cap) = re_section.captures(&content) {
-        let section = cap.get(1).map(|m| m.as_str()).unwrap_or("");
-        let section_start = cap.get(0).unwrap().start();
-        let mut jwt_block = format!("[jwt]{}", section);
-
-        let re_secret = Regex::new(r#"(?m)^\s*secret\s*=\s*"[^"]*"\s*$"#).unwrap();
-        if re_secret.is_match(section) {
-            jwt_block = re_secret.replace(&jwt_block, format!("secret=\"{}\"", jwt_secret)).to_string();
-        } else {
-            if !jwt_block.ends_with('\n') { jwt_block.push('\n'); }
-            jwt_block.push_str(&format!("secret=\"{}\"", jwt_secret));
-            // Add newline if not already at end
-            if !jwt_block.ends_with('\n') { jwt_block.push('\n'); }
-        }
-
-        // Rebuild content - need to preserve the next section start
-        let next_section = cap.get(2).map(|m| m.as_str()).unwrap_or("");
-        format!("{}{}{}",
-            &content[..section_start],
-            jwt_block,
-            next_section
-        )
-    } else {
-        // Should not happen due to insertion above, but fallback
-        let mut c = content;
-        if !c.ends_with('\n') { c.push('\n'); }
-        c.push_str(&format!("[jwt]\nsecret=\"{}\"\n", jwt_secret));
-        c
-    };
-
-    // Write back
-    let mut f = OpenOptions::new().write(true).truncate(true).open(config_path)?;
-    f.write_all(new_content.as_bytes())?;
-
+    
+    // Update or insert the secret value
+    doc["jwt"]["secret"] = value(jwt_secret);
+    
+    // Write back the updated content
+    std::fs::write(config_path, doc.to_string())
+        .map_err(|e| anyhow::anyhow!("Failed to write config file {}: {}", config_path, e))?;
+    
     Ok(())
 }
 

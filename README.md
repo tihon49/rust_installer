@@ -1,6 +1,6 @@
-# OpenVAir Installer
+# Open vAIR Installer
 
-Rust аналог функций установки OpenVAir, портированный из bash скрипта `install.sh`.
+Rust аналог функций установки Open vAIR, портированный из bash скрипта `install.sh`.
 
 ## Особенности
 
@@ -178,7 +178,7 @@ openvair_installer = { path = "../openvair_installer" }
 use openvair_installer::{log, execute, Color, constants};
 
 fn main() {
-    log(Color::Cyan, "Hello from OpenVAir installer!");
+    log(Color::Cyan, "Hello from Open vAIR installer!");
     execute("echo test", "Test command").unwrap();
 }
 ```
@@ -253,7 +253,7 @@ cargo doc --no-deps --open
 ## Пример вывода
 
 ```
-[2025-09-25 18:38:09] Initializing OpenVAir installer...
+[2025-09-25 18:38:09] Initializing Open vAIR installer...
 [2025-09-25 18:38:09] System information loaded successfully
 
 [2025-09-25 18:38:09] Configuration:
@@ -270,7 +270,7 @@ cargo doc --no-deps --open
 [2025-09-25 18:38:09] Start to execute: Test echo command
 Testing command execution
 [2025-09-25 18:38:09] Successfully executed: Test echo command
-[2025-09-25 18:38:09] OpenVAir installer module test completed successfully!
+[2025-09-25 18:38:09] Open vAIR installer module test completed successfully!
 ```
 
 ## Архитектура

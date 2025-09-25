@@ -28,4 +28,4 @@
 pub mod install;
 
 // Re-export commonly used items
-pub use install::{log, execute, stop_script, create_jwt_secret, Color, colors, constants};
+pub use install::{log, execute, stop_script, create_jwt_secret, verify_user_data, Color, colors, constants};

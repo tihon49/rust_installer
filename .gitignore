@@ -1,1 +1,45 @@
-/target
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file (uncomment if this is a binary crate)
+# Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Project specific
+*.orig
+.env
+.env.local
+.env.*.local
+
+# Debug files
+*.debug
+*.dSYM/
+
+# Local configuration (if any)
+config.local.*
+
+# Installation logs and project files
+install.log
+project_config.toml.backup

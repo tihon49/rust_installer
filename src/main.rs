@@ -1,6 +1,6 @@
 mod install;
 
-use install::{log, create_jwt_secret, Color, constants};
+use install::{log, create_jwt_secret, verify_user_data, Color, constants};
 
 fn main() {
     // Test logging with different colors
@@ -21,20 +21,20 @@ fn main() {
     println!("  Config File: {}", &*constants::PROJECT_CONFIG_FILE);
     println!("  Log File: {}", &*constants::LOG_FILE);
     
-    // Test JWT secret creation (only if config file exists)
+    // Test user data verification
     println!();
-    match std::path::Path::new(&*constants::PROJECT_CONFIG_FILE).exists() {
-        true => {
-            log(Color::Cyan, "Testing JWT secret creation...");
-            match create_jwt_secret() {
-                Ok(()) => log(Color::Green, "JWT secret creation test passed"),
-                Err(e) => log(Color::Red, &format!("JWT secret creation failed: {}", e)),
-            }
-        }
-        false => {
-            log(Color::Cyan, "Skipping JWT secret test (config file doesn't exist)");
-            log(Color::Cyan, &format!("Expected config file at: {}", &*constants::PROJECT_CONFIG_FILE));
-        }
+    log(Color::Cyan, "Testing user data verification...");
+    match verify_user_data() {
+        Ok(()) => log(Color::Green, "User data verification test passed"),
+        Err(e) => log(Color::Red, &format!("User data verification failed: {}", e)),
+    }
+    
+    // Test JWT secret creation
+    println!();
+    log(Color::Cyan, "Testing JWT secret creation...");
+    match create_jwt_secret() {
+        Ok(()) => log(Color::Green, "JWT secret creation test passed"),
+        Err(e) => log(Color::Red, &format!("JWT secret creation failed: {}", e)),
     }
     
     println!();
